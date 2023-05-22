@@ -130,7 +130,10 @@
         <h3 class="text-lg leading-6 font-medium text-gray-900 my-8">
           {{ selectedTicker.name }} - USD
         </h3>
-        <div class="flex items-end border-gray-600 border-b border-l h-64">
+        <div
+          ref="graph"
+          class="flex items-end border-gray-600 border-b border-l h-64"
+        >
           <div
             v-for="(bar, idx) in normalizedGraph"
             :key="idx"
@@ -195,6 +198,7 @@ export default {
       selectedTicker: null,
 
       graph: [],
+      maxGraphElements: 1,
       page: 1,
 
       isTickerAdded: false,
@@ -226,24 +230,32 @@ export default {
 
     setInterval(this.updateTickers, 5000);
   },
-  mounted: async function () {
-    const f = await fetch(
-      `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
-    );
-    const data = await f.json();
-    // console.log(Object.values(data.Data).map((el) => el.Symbol));
-    const tickerSymbolsArray = Object.values(data.Data).map((el) => {
-      return {
-        name: el.Symbol,
-        price: "-",
-      };
-    });
-    this.tickersList.push(tickerSymbolsArray);
-    // console.log(this.tickersList);
+  mounted() {
+    window.addEventListener("resize", this.calculateMaxgraphElements);
   },
+  beforeUnmount() {
+    window.removeEventListener("resize", this.calculateMaxgraphElements);
+  },
+  // mounted: async function () {
+  //   const f = await fetch(
+  //     `https://min-api.cryptocompare.com/data/all/coinlist?summary=true`
+  //   );
+  //   const data = await f.json();
+  //   // console.log(Object.values(data.Data).map((el) => el.Symbol));
+  //   const tickerSymbolsArray = Object.values(data.Data).map((el) => {
+  //     return {
+  //       name: el.Symbol,
+  //       price: "-",
+  //     };
+  //   });
+  //   this.tickersList.push(tickerSymbolsArray);
+  //   // console.log(this.tickersList);
+  // },
   watch: {
     selectedTicker() {
       this.graph = [];
+
+      this.$nextTick(this.calculateMaxgraphElements());
     },
 
     tickers(newV, old) {
@@ -312,12 +324,21 @@ export default {
   },
 
   methods: {
+    calculateMaxgraphElements() {
+      if (!this.$refs.graph) {
+        return;
+      }
+      return this.$refs.graph.clientWidth / 38;
+    },
     updateTicker(tickerName, price) {
       this.tickers
         .filter((t) => t.name === tickerName)
         .forEach((t) => {
           if (t === this.selectedTicker) {
             this.graph.push(price);
+            while (this.graph.length > this.calculateMaxgraphElements()) {
+              this.graph.shift();
+            }
           }
           t.price = price;
         });
